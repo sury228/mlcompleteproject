@@ -22,9 +22,15 @@ if __name__ == "__main__":
         train_arr, test_arr, _ = data_transformation.initiate_data_transformation(train_data, test_data)
         print(f"Data transformation complete")
 
-        modeltrainer = ModelTrainer()
-        r2_score = modeltrainer.initiate_model_trainer(train_arr, test_arr)
-        print(f"Ingestion completed. Model R2 score: {r2_score}")
+        print("Starting model training...")
+        try:
+            modeltrainer = ModelTrainer()
+            r2_score = modeltrainer.initiate_model_trainer(train_arr, test_arr)
+            print(f"Ingestion completed. Model R2 score: {r2_score}")
+        except Exception as e:
+            print(f"Model training failed: {e}")
+            import traceback
+            traceback.print_exc()
     except Exception as e:
         print(f"ERROR: {e}")
         import traceback

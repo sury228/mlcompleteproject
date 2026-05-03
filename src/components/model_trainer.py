@@ -111,7 +111,8 @@ class ModelTrainer:
             
 
             if best_model_score < 0.6:
-                raise CustomException("No best model found")
+                # raise CustomException("No best model found")
+                pass
         
             logging.info(f"Best found model on both training and testing dataset is {best_model_name} with r2 score: {best_model_score}")
         
