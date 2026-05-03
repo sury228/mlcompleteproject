@@ -1,33 +1,84 @@
 import os
 import sys
-import numpy as np
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+import pickle
+
 from dataclasses import dataclass
-from sklearn.ensemble import RandomForestRegressor
+
+from catboost import CatBoostRegressor
+from sklearn.ensemble import (
+    AdaBoostRegressor,
+    GradientBoostingRegressor,
+    RandomForestRegressor,
+)
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
+
 
 from src.exception import CustomException
-from src.utils import save_object
+from src.logger import logging
+from src.utils import save_object, evaluate_models
 
 @dataclass
 class ModelTrainerConfig:
-    trained_model_file_path: str = os.path.join('artifacts', 'model.pkl')
+    trained_model_file_path = os.path.join("artifacts","model.pkl")
 
 class ModelTrainer:
     def __init__(self):
         self.model_trainer_config = ModelTrainerConfig()
 
-    def initiate_model_trainer(self, train_array: np.ndarray, test_array: np.ndarray):
+    def initiate_model_trainer(self, train_array, test_array):
         try:
-            X_train, y_train = train_array[:, :-1], train_array[:, -1]
-            X_test, y_test = test_array[:, :-1], test_array[:, -1]
+            logging.info("Splitting training and test input data")
+            x_train,y_train, x_test, y_test = (
+                train_array[:,:-1],
+                train_array[:,-1],
+                test_array[:,:-1],
+                test_array[:,-1]
+            )
+            models={
+                "Random Forest": RandomForestRegressor(),
+                "Decision Tree": DecisionTreeRegressor(),
+                "Gradient Boosting": GradientBoostingRegressor(),
+                "Linear Regression": LinearRegression(),
+                "K-Neighbors Regressor": KNeighborsRegressor(),
+                "XGBRegressor": XGBRegressor(),
+                "CatBoosting Regressor": CatBoostRegressor(verbose=False)
+            }
+            model_report:dict = evaluate_models(x_train, y_train, x_test, y_test, models)
+       
+            ##best model score
+            best_model_score = max(sorted(model_report.values()))
 
-            model = RandomForestRegressor(n_estimators=100, random_state=42)
-            model.fit(X_train, y_train)
+            #best model name
+            best_model_name = list(model_report.keys())[
+                list(model_report.values()).index(best_model_score)
+            ]
+            best_model = models[best_model_name]
+            
 
-            y_pred = model.predict(X_test)
-            r2 = r2_score(y_test, y_pred)
+            if best_model_score < 0.6:
+                raise CustomException("No best model found")
+        
+            logging.info(f"Best found model on both training and testing dataset is {best_model_name} with r2 score: {best_model_score}")
+        
+            # preprocessor = load_object(preprocessor_path)
+            save_object(
+                file_path=self.model_trainer_config.trained_model_file_path,
+                obj=best_model
+            )
 
-            save_object(file_path=self.model_trainer_config.trained_model_file_path, obj=model)
-            return self.model_trainer_config.trained_model_file_path, r2
+            predicted = best_model.predict(x_test)
+            r2_square = r2_score(y_test, predicted)
+            return r2_square
+
+
         except Exception as e:
             raise CustomException(e, sys)
+
+       
